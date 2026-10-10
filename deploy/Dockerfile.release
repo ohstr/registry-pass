@@ -1,0 +1,8 @@
+# Release image: GoReleaser puts the prebuilt binaries in the build context.
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+COPY registry-pass /usr/local/bin/registry-pass
+COPY docker-credential-registry-pass /usr/local/bin/docker-credential-registry-pass
+USER nonroot:nonroot
+EXPOSE 5001
+ENTRYPOINT ["/usr/local/bin/registry-pass"]
+CMD ["serve"]

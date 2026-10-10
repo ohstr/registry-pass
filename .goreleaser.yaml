@@ -1,0 +1,94 @@
+version: 2
+
+project_name: registry-pass
+
+builds:
+  - id: registry-pass
+    main: ./cmd/registry-pass
+    binary: registry-pass
+    env: [CGO_ENABLED=0, GOWORK=off]
+    flags: [-trimpath]
+    goos: [linux]
+    goarch: [amd64, arm64, arm, "386", ppc64le, s390x]
+    goarm: ["7"]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+  - id: helper
+    main: ./cmd/docker-credential-registry-pass
+    binary: docker-credential-registry-pass
+    env: [CGO_ENABLED=0, GOWORK=off]
+    flags: [-trimpath]
+    goos: [linux]
+    goarch: [amd64, arm64, arm, "386", ppc64le, s390x]
+    goarm: ["7"]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: registry-pass
+    ids: [registry-pass, helper]
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
+    files: [README.md, CHANGELOG.md, LICENSE*, deploy/examples/*]
+
+checksum:
+  name_template: checksums.txt
+
+# One single-platform image per arch, stitched into multi-arch manifests
+# below (the same layout ncli uses). Versioned tags are always pushed;
+# latest-* only for a stable release.
+dockers:
+  - id: amd64-versioned
+    ids: [registry-pass, helper]
+    goos: linux
+    goarch: amd64
+    use: buildx
+    dockerfile: deploy/Dockerfile.release
+    image_templates: ["ghcr.io/ohstr/registry-pass:{{ .Version }}-amd64"]
+    build_flag_templates: ["--platform=linux/amd64"]
+  - id: amd64-latest
+    ids: [registry-pass, helper]
+    goos: linux
+    goarch: amd64
+    use: buildx
+    dockerfile: deploy/Dockerfile.release
+    image_templates: ["ghcr.io/ohstr/registry-pass:latest-amd64"]
+    build_flag_templates: ["--platform=linux/amd64"]
+    skip_push: auto
+  - id: arm64-versioned
+    ids: [registry-pass, helper]
+    goos: linux
+    goarch: arm64
+    use: buildx
+    dockerfile: deploy/Dockerfile.release
+    image_templates: ["ghcr.io/ohstr/registry-pass:{{ .Version }}-arm64"]
+    build_flag_templates: ["--platform=linux/arm64"]
+  - id: arm64-latest
+    ids: [registry-pass, helper]
+    goos: linux
+    goarch: arm64
+    use: buildx
+    dockerfile: deploy/Dockerfile.release
+    image_templates: ["ghcr.io/ohstr/registry-pass:latest-arm64"]
+    build_flag_templates: ["--platform=linux/arm64"]
+    skip_push: auto
+
+docker_manifests:
+  - name_template: "ghcr.io/ohstr/registry-pass:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/ohstr/registry-pass:{{ .Version }}-amd64"
+      - "ghcr.io/ohstr/registry-pass:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/ohstr/registry-pass:latest"
+    image_templates:
+      - "ghcr.io/ohstr/registry-pass:latest-amd64"
+      - "ghcr.io/ohstr/registry-pass:latest-arm64"
+    skip_push: auto
+
+# Notes come from CHANGELOG.md via --release-notes (see release.yml).
+release:
+  github:
+    owner: ohstr
+    name: registry-pass
+  mode: replace
+  prerelease: auto

@@ -42,3 +42,8 @@ jobs:
         run: docker build -f deploy/Dockerfile -t registry-pass:ci .
       - name: helm
         run: helm lint deploy/helm/registry-pass
+      - name: release dry run (all Linux binaries)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean
