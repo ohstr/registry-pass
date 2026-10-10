@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-registry-pass
+  labels:
+    app.kubernetes.io/name: registry-pass
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  config.yaml: |
+{{ toYaml .Values.config | indent 4 }}
+  grants.yaml: |
+{{ toYaml .Values.grants | indent 4 }}

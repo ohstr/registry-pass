@@ -1,0 +1,32 @@
+# registry-pass configuration. Every key not shown keeps its default; run
+# `registry-pass config print` to see them all and where each value came
+# from, and `registry-pass config env` for the environment overrides.
+realm: https://pass.example/token
+services: [registry.example]
+
+server:
+  listen: ":5001"
+  # TLS ends at the ingress in front of registry-pass.
+  trustedProxies: [10.0.0.0/8]
+
+admin:
+  listen: ":9090"          # health and metrics off the public port
+
+token:
+  signingKeyFile: /run/secrets/pass.key
+  certificateFile: /run/secrets/pass.crt
+
+membership:
+  authorities: [npub1replacewiththeauthoritykey]
+  heartbeat: {enabled: true}
+  sources:
+    - relay:
+        urls: [wss://relay.example]
+        reader: {keyFile: /run/secrets/reader.nsec}
+    # - file: {path: /etc/registry-pass/members.jsonl}
+    # - http:
+    #     url: https://feed.example/members
+    #     headers: {Authorization: "Bearer {file:/run/secrets/feed.token}"}
+
+grants:
+  file: /etc/registry-pass/grants.yaml

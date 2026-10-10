@@ -1,0 +1,6 @@
+apiVersion: v2
+name: registry-pass
+description: Nostr logins for an OCI registry (a Distribution token service)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

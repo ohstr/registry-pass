@@ -333,6 +333,17 @@ func TestUpperSnake(t *testing.T) {
 	}
 }
 
+func TestExampleConfigIsValid(t *testing.T) {
+	data, err := os.ReadFile("../../deploy/examples/config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := strings.Replace(string(data), "npub1replacewiththeauthoritykey", authority.Npub, 1)
+	if _, _, err := Load(write(t, body), nil); err != nil {
+		t.Fatalf("deploy/examples/config.yaml: %v", err)
+	}
+}
+
 func TestRateAndDuration(t *testing.T) {
 	var r Rate
 	for in, want := range map[string]Rate{"300/min": {300, time.Minute}, "5/s": {5, time.Second}, "10/hour": {10, time.Hour}, "0": {}} {
