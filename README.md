@@ -6,6 +6,10 @@ signed Nostr event instead of a password, and get a short-lived
 token for the repositories they may use. Membership comes from events signed
 by an authority key. The registry itself is unmodified.
 
+Works with self-hosted registries that support external token auth, such as
+Distribution. Hosted registries (GitHub, Docker Hub, ECR) run their own login
+and can't use it.
+
 ## Setup
 
 ```sh
