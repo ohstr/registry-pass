@@ -62,9 +62,13 @@ type pass struct {
 type passOpts struct {
 	grants   string
 	members  []*nip01.Event
-	relayURL string // membership from a relay instead of the file
+	relayURL string   // membership from a relay instead of the file
 	extra    string   // appended to the config
 	env      []string // environment overrides
+	// realmHost replaces localhost in the realm and makes registry-pass
+	// listen on every interface, for clients outside this network
+	// namespace (the docker daemon).
+	realmHost string
 }
 
 const defaultGrants = `
@@ -134,6 +138,10 @@ func startPass(t *testing.T, o passOpts) *pass {
 	// realms on private IP addresses.
 	_, port, _ := net.SplitHostPort(p.addr)
 	p.realm = "http://localhost:" + port + "/token"
+	if o.realmHost != "" {
+		p.realm = "http://" + net.JoinHostPort(o.realmHost, port) + "/token"
+		p.addr = "0.0.0.0:" + port
+	}
 
 	keyPEM, certPEM := generate(t)
 	os.WriteFile(p.keyPEM, keyPEM, 0o600)

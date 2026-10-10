@@ -4,6 +4,9 @@ go 1.26.9
 
 require (
 	github.com/distribution/distribution/v3 v3.1.2
+	github.com/docker/distribution v2.8.3+incompatible
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-containerregistry v0.22.1
 	github.com/ohstr/nmilat v0.5.0-rc.16
@@ -26,7 +29,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flokiorg/go-flokicoin v0.25.12-alpha // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
