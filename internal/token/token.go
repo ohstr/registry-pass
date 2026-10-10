@@ -4,6 +4,7 @@
 package token
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -245,9 +246,15 @@ func Thumbprint(pub crypto.PublicKey) string {
 	var payload string
 	switch k := pub.(type) {
 	case *ecdsa.PublicKey:
-		x := base64.RawURLEncoding.EncodeToString(k.X.Bytes())
-		y := base64.RawURLEncoding.EncodeToString(k.Y.Bytes())
-		payload = fmt.Sprintf(`{"crv":"%s","kty":"EC","x":"%s","y":"%s"}`, k.Params().Name, x, y)
+		raw, err := k.Bytes() // 0x04 || X || Y, fixed width
+		if err != nil {
+			return ""
+		}
+		n := (len(raw) - 1) / 2
+		// Distribution encodes big.Int.Bytes(): no leading zero bytes.
+		x := base64.RawURLEncoding.EncodeToString(bytes.TrimLeft(raw[1:1+n], "\x00"))
+		y := base64.RawURLEncoding.EncodeToString(bytes.TrimLeft(raw[1+n:], "\x00"))
+		payload = fmt.Sprintf(`{"crv":"%s","kty":"EC","x":"%s","y":"%s"}`, k.Curve.Params().Name, x, y)
 	case *rsa.PublicKey:
 		e := base64.RawURLEncoding.EncodeToString(bigEndian(k.E))
 		n := base64.RawURLEncoding.EncodeToString(k.N.Bytes())
