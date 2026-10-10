@@ -1,8 +1,8 @@
 # registry-pass
 
 Nostr logins for an OCI registry. Clients log in to a
-[Distribution](https://github.com/distribution/distribution) registry (2.8 or
-v3) with a signed Nostr event instead of a password, and get a short-lived
+[Distribution](https://github.com/distribution/distribution) registry with a
+signed Nostr event instead of a password, and get a short-lived
 token for the repositories they may use. Membership comes from events signed
 by an authority key. The registry itself is unmodified.
 
