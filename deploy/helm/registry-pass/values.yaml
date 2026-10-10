@@ -10,7 +10,7 @@ replicas: 2
 # at /run/secrets. Create it yourself; the chart never sees key material.
 secretName: registry-pass-secrets
 
-# config.yaml as described in PLAN.md §8. Ports must match service below.
+# config.yaml; see `registry-pass config print` for every setting. Ports must match service below.
 config:
   realm: https://pass.example/token
   services: [registry.example]

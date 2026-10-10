@@ -51,8 +51,7 @@ environment variable, a NIP-46 bunker or a local socket signer.
 
 Every setting has a default and can be overridden with a `REGISTRY_PASS_*`
 environment variable. `registry-pass config env` lists them, and
-`registry-pass config print` shows the effective values. The full reference is
-in [PLAN.md](PLAN.md) §8.
+`registry-pass config print` shows the effective values.
 
 ## Development
 

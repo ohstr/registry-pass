@@ -1,5 +1,5 @@
 // Package login verifies the signed Nostr event a client sends as its Basic
-// password (PLAN.md §1).
+// password.
 package login
 
 import (

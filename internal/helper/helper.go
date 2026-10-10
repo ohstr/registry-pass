@@ -1,4 +1,4 @@
-// Package helper is the Docker credential helper (PLAN.md §6): it answers
+// Package helper is the Docker credential helper: it answers
 // `get` with the client's npub and a freshly signed login event.
 package helper
 

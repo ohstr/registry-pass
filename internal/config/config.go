@@ -4,7 +4,7 @@ package config
 
 import "time"
 
-// Config is the whole server configuration (PLAN.md §8).
+// Config is the whole server configuration.
 type Config struct {
 	Realm    string   `yaml:"realm"`
 	Services []string `yaml:"services"`
@@ -167,7 +167,7 @@ type Logging struct {
 	LogGranted bool   `yaml:"logGranted"`
 }
 
-// Default returns the configuration with every default from PLAN.md §8.
+// Default returns the configuration with every default.
 func Default() Config {
 	return Config{
 		Issuer: "registry-pass",

@@ -1,5 +1,5 @@
 // Package membership keeps the view of who is a member, built only from
-// events signed by the configured authorities (PLAN.md §2).
+// events signed by the configured authorities.
 package membership
 
 import (

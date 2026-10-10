@@ -1,4 +1,4 @@
-// Package token issues the registry tokens (PLAN.md §4): JWTs signed with
+// Package token issues the registry tokens: JWTs signed with
 // the configured key, carrying the certificate chain in x5c so both
 // Distribution 2.8 and v3 can verify them against their rootcertbundle.
 package token

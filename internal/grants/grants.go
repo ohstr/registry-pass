@@ -1,4 +1,4 @@
-// Package grants decides what each identity may do (PLAN.md §3): the
+// Package grants decides what each identity may do: the
 // grants file, repository patterns and the intersection with what a token
 // request asks for.
 package grants

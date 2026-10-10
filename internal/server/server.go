@@ -1,5 +1,4 @@
-// Package server serves the token endpoint and the admin endpoints
-// (PLAN.md §4 and §7).
+// Package server serves the token endpoint and the admin endpoints.
 package server
 
 import (

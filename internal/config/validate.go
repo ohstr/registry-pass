@@ -38,7 +38,7 @@ func (c *checker) path(name, v string) {
 	}
 }
 
-// Validate checks every setting and the cross-checks of PLAN.md §8, and
+// Validate checks every setting and the cross-setting rules, and
 // normalizes public keys to lowercase hex. It returns a *ValidationError.
 func (cfg *Config) Validate() error {
 	c := &checker{}
