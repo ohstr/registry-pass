@@ -287,7 +287,7 @@ func (cfg *Config) validateSource(c *checker, i int, s Source) {
 		if s.File.Path == "" {
 			c.addf("%s.file.path: required", where)
 		}
-		if !s.File.Watching() && s.File.PollInterval >= stale {
+		if s.File.PollInterval >= stale {
 			c.addf("%s.file.pollInterval (%s) must be shorter than membership.staleAfter (%s)", where, s.File.PollInterval, stale)
 		}
 	case s.HTTP != nil:
