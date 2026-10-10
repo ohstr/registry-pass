@@ -1,0 +1,14 @@
+# What each identity may do. Reloaded on SIGHUP by default (grants.reload).
+templates:                      # every alive member
+  - {repos: "{name}/**", actions: [pull, push]}
+reservedNames: [admin, library]
+anonymous: []                   # e.g. [{repos: "public/**", actions: [pull]}]
+identities: {}
+  # npub1...:
+  #   - {repos: "bodies/**", actions: [pull, push]}
+staticUsers: {}
+  # node-pull:                  # htpasswd -nbBC 12 '' 'password' | cut -d: -f2
+  #   bcrypt: "..."
+  #   grants: [{repos: "**", actions: [pull]}]
+catalog: []
+deny: []

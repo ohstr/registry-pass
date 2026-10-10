@@ -1,0 +1,46 @@
+image:
+  repository: ghcr.io/ohstr/registry-pass
+  tag: ""          # defaults to the chart appVersion
+  digest: ""       # set to pin by digest (recommended)
+  pullPolicy: IfNotPresent
+
+replicas: 2
+
+# The Secret holding pass.key, pass.crt and (if used) reader.nsec, mounted
+# at /run/secrets. Create it yourself; the chart never sees key material.
+secretName: registry-pass-secrets
+
+# config.yaml; see `registry-pass config print` for every setting. Ports must match service below.
+config:
+  realm: https://pass.example/token
+  services: [registry.example]
+  server:
+    listen: ":5001"
+    trustedProxies: [10.0.0.0/8]
+  admin:
+    listen: ":9090"
+  token:
+    signingKeyFile: /run/secrets/pass.key
+    certificateFile: /run/secrets/pass.crt
+  membership:
+    authorities: []
+    sources: []
+  grants:
+    file: /etc/registry-pass/grants.yaml
+    reload: watch
+
+# grants.yaml; mounted from the same ConfigMap, reloaded on change.
+grants:
+  templates:
+    - {repos: "{name}/**", actions: [pull, push]}
+
+# Extra REGISTRY_PASS_* overrides.
+env: {}
+
+service:
+  port: 5001
+  adminPort: 9090
+
+resources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {memory: 256Mi}

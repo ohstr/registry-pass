@@ -1,0 +1,9 @@
+# ~/.config/registry-pass/helper.yaml (or $DOCKER_CREDENTIAL_REGISTRY_PASS_CONFIG)
+registries:
+  registry.example:
+    realm: https://pass.example/token
+    service: registry.example
+    # file:///path/key.nsec (mode 0600) | env:NOSTR_NSEC | bunker://... | bunker+unix:///run/signer.sock
+    signer: bunker+unix:///run/user/1000/nostr-signer.sock
+    lifetime: 1h          # must not exceed the server's login.maxLifetime
+    refreshAt: 0.5        # sign anew when half the lifetime is left
