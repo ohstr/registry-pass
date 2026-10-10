@@ -305,3 +305,6 @@ func (p *Policy) Authorize(s Subject, scopes []Scope) []Access {
 	}
 	return out
 }
+
+// HasAnonymous reports whether any grant applies without credentials.
+func (p *Policy) HasAnonymous() bool { return len(p.anonymous) > 0 }

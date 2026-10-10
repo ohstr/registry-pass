@@ -87,9 +87,13 @@ func TestVerify(t *testing.T) {
 		{name: "valid service tag", user: alice.Npub, service: "registry.example",
 			password: func() string { return testkit.Password(valid([]string{"service", "registry.example"})) }},
 		{name: "realm with trailing slash, default port, uppercase host", user: alice.Npub,
-			password: func() string { return testkit.Password(resign(withTag(valid(), "u", "https://PASS.example:443/token/"), alice)) }},
+			password: func() string {
+				return testkit.Password(resign(withTag(valid(), "u", "https://PASS.example:443/token/"), alice))
+			}},
 		{name: "created within clock skew", user: alice.Npub,
-			password: func() string { return testkit.Password(alice.LoginEvent(realm, now.Add(20*time.Second), 30*time.Minute)) }},
+			password: func() string {
+				return testkit.Password(alice.LoginEvent(realm, now.Add(20*time.Second), 30*time.Minute))
+			}},
 
 		// identity and key confusion
 		{name: "nsec as username", user: alice.Nsec, password: func() string { return testkit.Password(valid()) }, want: ReasonBadUsername},
