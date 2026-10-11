@@ -112,6 +112,18 @@ func TestSkillsInstall(t *testing.T) {
 	}
 }
 
+func TestSkillsInstallNeedsDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	code, _, e := runSkills("install")
+	if code != 2 || !strings.Contains(e, "--dir is required") {
+		t.Fatalf("install without --dir: %d %s", code, e)
+	}
+	if entries, _ := os.ReadDir(home); len(entries) != 0 {
+		t.Fatal("install without --dir wrote into the home directory")
+	}
+}
+
 func TestSkillsThroughRun(t *testing.T) {
 	if code, out, _ := runCmd(t, t.Context(), "skills", "list"); code != 0 || !strings.Contains(out, "registry-pass-operate") {
 		t.Fatal("registry-pass skills list")
