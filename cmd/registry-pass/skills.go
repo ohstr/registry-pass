@@ -23,9 +23,8 @@ const skillsUsage = `usage: registry-pass skills <command>
 commands:
   list                         list the built-in agent skills
   show <name> [file]           print a skill's SKILL.md, or one of its files
-  install [--dir D] [--force] [name...]
-                               copy skills into an agent's skills directory
-                               (default ~/.claude/skills)
+  install --dir D [--force] [name...]
+                               copy skills into your agent's skills directory
 `
 
 type skill struct {
@@ -142,18 +141,15 @@ func skillsCmd(args []string, stdout, stderr io.Writer) int {
 func installSkills(args []string, all []skill, byName map[string]skill, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("skills install", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	dir := flags.String("dir", "", "skills directory (default ~/.claude/skills)")
+	dir := flags.String("dir", "", "your agent's skills directory (required)")
 	force := flags.Bool("force", false, "overwrite files that differ")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
+	// No default: where skills go depends on which agent reads them.
 	if *dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Fprintln(stderr, "skills: no home directory; pass --dir")
-			return 1
-		}
-		*dir = filepath.Join(home, ".claude", "skills")
+		fmt.Fprint(stderr, "skills: --dir is required: the skills directory of the agent that will read them\n")
+		return 2
 	}
 	chosen := all
 	if names := flags.Args(); len(names) > 0 {

@@ -9,7 +9,8 @@
   locked out of it. (#4)
 - Adds agent skills for operating registry-pass, writing grants, managing
   membership and setting up clients, built into the binary:
-  `registry-pass skills list`, `show` and `install`. (#4)
+  `registry-pass skills list`, `show` and `install --dir` (any agent's skills
+  directory). (#4)
 
 ### Fixed
 

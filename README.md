@@ -103,7 +103,7 @@ managing membership and setting up clients:
 
 ```sh
 registry-pass skills list
-registry-pass skills install          # into ~/.claude/skills
+registry-pass skills install --dir <your agent's skills directory>
 ```
 
 ## Development
