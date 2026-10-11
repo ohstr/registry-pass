@@ -281,9 +281,16 @@ func TestPrintShowsOrigins(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"maxLifetime: 2h0m0s # env", "clockSkew: 10s # file", "minRemaining: 2m0s # default"} {
+	for _, want := range []string{"maxLifetime: 2h0m0s # env", "clockSkew: 10s # file", "minRemaining: 2m0s # default",
+		"services: # file", "usernameFormats: # default"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("print missing %q:\n%s", want, out)
+		}
+	}
+	// A list's origin must not leak onto the key after it.
+	for _, wrong := range []string{"server: #", "token: #", "admin: #"} {
+		if strings.Contains(out, wrong) {
+			t.Errorf("print put a comment on a section key %q:\n%s", wrong, out)
 		}
 	}
 }

@@ -8,6 +8,11 @@
   a member's own namespace without the name being reserved and the member
   locked out of it.
 
+### Fixed
+
+- Fixes `config print` showing where a list came from on the line of the next
+  setting instead of the list's own.
+
 ## [0.1.0]
 
 First release: Distribution token authentication with signed Nostr logins
