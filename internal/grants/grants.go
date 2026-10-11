@@ -21,6 +21,10 @@ import (
 type Grant struct {
 	Repos   string   `yaml:"repos"`
 	Actions []string `yaml:"actions"`
+	// Reserve false marks a grant into a member's own namespace (a CI or
+	// agent key for alice/**), so autoReserve doesn't reserve the name and
+	// lock the member out of it.
+	Reserve *bool `yaml:"reserve,omitempty"`
 }
 
 // StaticUserSpec is a Basic user with a bcrypt password.
@@ -107,6 +111,10 @@ func Parse(data []byte, opts Options) (*Policy, error) {
 				add("%s[%d]: a template must use {name}", where, i)
 				continue
 			}
+			if allowName && g.Reserve != nil {
+				add("%s[%d]: reserve has no meaning on a template", where, i)
+				continue
+			}
 			if len(g.Actions) == 0 {
 				add("%s[%d]: no actions", where, i)
 				continue
@@ -123,7 +131,7 @@ func Parse(data []byte, opts Options) (*Policy, error) {
 			}
 			sort.Strings(acts)
 			out = append(out, rule{pattern: pat, actions: acts})
-			if opts.AutoReserve && !allowName {
+			if opts.AutoReserve && !allowName && (g.Reserve == nil || *g.Reserve) {
 				if first, ok := pat.LiteralFirst(); ok {
 					p.reserved[first] = true
 				}

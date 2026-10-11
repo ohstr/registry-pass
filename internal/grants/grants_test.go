@@ -3,6 +3,7 @@ package grants
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -341,6 +342,79 @@ func TestParseScopes(t *testing.T) {
 	for _, bad := range []string{"", "A", "a/", "/a", "a//b", "a..b", ".a", "a_", "a___b", "a:b", "a b", "é"} {
 		if ValidRepoName(bad) {
 			t.Errorf("%q accepted", bad)
+		}
+	}
+}
+
+func TestReserveFalseKeepsTheMemberNamespace(t *testing.T) {
+	bot := builder
+	alice := Subject{Pubkey: alice.Pub, MemberName: "alice"}
+	botSub := Subject{Pubkey: bot.Pub}
+
+	// Without reserve: false, a bot's grant into alice/ reserves "alice"
+	// and alice loses her own namespace.
+	locked := policy(t, fmt.Sprintf(`
+templates: [{repos: "{name}/**", actions: [pull, push]}]
+identities:
+  %q: [{repos: "alice/**", actions: [pull, push]}]
+`, bot.Npub))
+	if got := locked.Authorize(alice, scopes("repository:alice/app:push")); got != nil {
+		t.Fatal("expected the default to reserve alice (squatting protection)")
+	}
+
+	p := policy(t, fmt.Sprintf(`
+templates: [{repos: "{name}/**", actions: [pull, push]}]
+identities:
+  %q:
+    - {repos: "alice/**", actions: [pull, push], reserve: false}
+    - {repos: "shared/**", actions: [pull, push]}
+`, bot.Npub))
+	if got := p.Authorize(alice, scopes("repository:alice/app:push")); len(got) != 1 {
+		t.Fatalf("alice lost her namespace: %v", got)
+	}
+	if got := p.Authorize(botSub, scopes("repository:alice/app:push")); len(got) != 1 {
+		t.Fatalf("the bot lost its grant: %v", got)
+	}
+	if got := p.Authorize(Subject{Pubkey: mallory.Pub, MemberName: "shared"}, scopes("repository:shared/x:push")); got != nil {
+		t.Fatal("grants without reserve: false must still reserve their namespace")
+	}
+
+	explicit := policy(t, fmt.Sprintf(`
+templates: [{repos: "{name}/**", actions: [pull]}]
+reservedNames: [alice]
+identities:
+  %q: [{repos: "alice/**", actions: [pull], reserve: false}]
+`, bot.Npub))
+	if explicit.ValidMemberName("alice") {
+		t.Fatal("reservedNames must win over reserve: false")
+	}
+	if _, err := Parse([]byte(`templates: [{repos: "{name}/**", actions: [pull], reserve: false}]`), opts); err == nil {
+		t.Fatal("reserve on a template accepted")
+	}
+	yes := policy(t, fmt.Sprintf("identities:\n  %q: [{repos: \"alice/**\", actions: [pull], reserve: true}]", bot.Npub))
+	if !yes.Reserved("alice") {
+		t.Fatal("reserve: true must reserve")
+	}
+}
+
+func TestExamplesDirectoryGrantsAreValid(t *testing.T) {
+	files, err := filepath.Glob("../../examples/*/grants.yaml")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no example grants found: %v", err)
+	}
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := Parse(data, opts)
+		if err != nil {
+			t.Errorf("%s: %v", f, err)
+			continue
+		}
+		// Examples that grant a bot into alice/ must leave alice her namespace.
+		if strings.Contains(string(data), `"alice/`) && !p.ValidMemberName("alice") {
+			t.Errorf("%s: alice is locked out of her own namespace", f)
 		}
 	}
 }

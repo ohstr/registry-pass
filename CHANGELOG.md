@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0]
+
+### Added
+
+- Adds `reserve: false` on a grant, so a CI or agent key can be given access to
+  a member's own namespace without the name being reserved and the member
+  locked out of it.
+
 ## [0.1.0]
 
 First release: Distribution token authentication with signed Nostr logins
