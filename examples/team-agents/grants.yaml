@@ -1,0 +1,10 @@
+# A private team namespace: only the team pulls or pushes acme/.
+templates:
+  - {repos: "{name}/**", actions: [pull, push]}
+identities:
+  # team lead: may also delete
+  npub1f4fhn3nygqrtwva8trrv6kwt37zrzkrykflplmr8dj36kt293laqkv96ch:
+    - {repos: "acme/**", actions: [pull, push, delete]}
+  # developer
+  npub13ddgtmdkvtyu4dlftn0ld06yks8gg0gv9z43pmgq5wye53wwyznqt6c2pw:
+    - {repos: "acme/**", actions: [pull, push]}

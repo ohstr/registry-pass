@@ -1,0 +1,12 @@
+# Members publish under their name; a curator promotes reviewed agents to
+# verified/, which is the only place anonymous users can pull from.
+templates:
+  - {repos: "{name}/**", actions: [pull, push]}
+identities:
+  # curator
+  npub1sh4kesunf4re9nzpyqstrahl6cmcyecqla5ax85v60axqv64hc5quyk0md:
+    - {repos: "verified/**", actions: [pull, push, delete]}
+    - {repos: "**", actions: [pull]}
+anonymous:
+  - {repos: "verified/**", actions: [pull]}
+catalog: [npub1sh4kesunf4re9nzpyqstrahl6cmcyecqla5ax85v60axqv64hc5quyk0md]

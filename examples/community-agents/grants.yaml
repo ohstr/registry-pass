@@ -1,0 +1,6 @@
+# Members push to their own namespace; anyone pulls any agent.
+templates:
+  - {repos: "{name}/**", actions: [pull, push]}
+anonymous:
+  - {repos: "**", actions: [pull]}
+reservedNames: [library, verified, admin]
