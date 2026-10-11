@@ -123,10 +123,15 @@ func annotate(n *yaml.Node, prefix string, origins Origins) {
 		if prefix != "" {
 			path = prefix + "." + k.Value
 		}
-		if v.Kind == yaml.MappingNode {
+		switch v.Kind {
+		case yaml.MappingNode:
 			annotate(v, path, origins)
-			continue
+		case yaml.SequenceNode:
+			// A comment on the list itself would print after its last item,
+			// next to the following key; put it on this key instead.
+			k.LineComment = string(origins.Of(path))
+		default:
+			v.LineComment = string(origins.Of(path))
 		}
-		v.LineComment = string(origins.Of(path))
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ohstr/registry-pass/internal/testkit"
+	"gopkg.in/yaml.v3"
 )
 
 var authority = testkit.NewKey("authority")
@@ -281,9 +282,16 @@ func TestPrintShowsOrigins(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"maxLifetime: 2h0m0s # env", "clockSkew: 10s # file", "minRemaining: 2m0s # default"} {
+	for _, want := range []string{"maxLifetime: 2h0m0s # env", "clockSkew: 10s # file", "minRemaining: 2m0s # default",
+		"services: # file", "usernameFormats: # default"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("print missing %q:\n%s", want, out)
+		}
+	}
+	// A list's origin must not leak onto the key after it.
+	for _, wrong := range []string{"server: #", "token: #", "admin: #"} {
+		if strings.Contains(out, wrong) {
+			t.Errorf("print put a comment on a section key %q:\n%s", wrong, out)
 		}
 	}
 }
@@ -341,6 +349,38 @@ func TestExampleConfigIsValid(t *testing.T) {
 	body := strings.Replace(string(data), "npub1replacewiththeauthoritykey", authority.Npub, 1)
 	if _, _, err := Load(write(t, body), nil); err != nil {
 		t.Fatalf("deploy/examples/config.yaml: %v", err)
+	}
+}
+
+// TestSkillConfigReferenceMatchesCode keeps the agent skill's settings
+// reference in step with the schema: no unknown keys, none missing.
+func TestSkillConfigReferenceMatchesCode(t *testing.T) {
+	data, err := os.ReadFile("../../skills/registry-pass-operate/references/config.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, block, ok := strings.Cut(string(data), "```yaml\n")
+	if !ok {
+		t.Fatal("no yaml block")
+	}
+	block, _, _ = strings.Cut(block, "```")
+	cfg := Default()
+	dec := yaml.NewDecoder(strings.NewReader(block))
+	dec.KnownFields(true)
+	if err := dec.Decode(&cfg); err != nil {
+		t.Fatalf("reference has keys the schema doesn't: %v", err)
+	}
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(block), &root); err != nil {
+		t.Fatal(err)
+	}
+	present := Origins{}
+	markOrigins(root.Content[0], "", present)
+	d := Default()
+	for name, f := range envFields(&d) {
+		if _, ok := present[f.path]; !ok {
+			t.Errorf("reference is missing %s (%s)", f.path, name)
+		}
 	}
 }
 

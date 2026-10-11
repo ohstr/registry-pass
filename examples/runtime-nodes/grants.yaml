@@ -1,0 +1,12 @@
+# Machines that run agents only pull.
+templates:
+  - {repos: "{name}/**", actions: [pull, push]}
+identities:
+  # an agent host with its own Nostr key
+  npub1r9kqj6vuhw7ggtx6wre2fkkkemmnxknmdt2p3w5ludksma2wqjvq6qhn3t:
+    - {repos: "**", actions: [pull]}
+staticUsers:
+  # Kubernetes nodes (password "change-me": replace it)
+  node-pull:
+    bcrypt: "$2a$12$CPOxlZTG9VJb.A7e45SY.en5xHS4q1ZYCM6mBrgdJJLEuCLHtuuVK"
+    grants: [{repos: "**", actions: [pull]}]

@@ -1,0 +1,10 @@
+# Members publish under their name; a CI key publishes alice's agents too.
+templates:
+  - {repos: "{name}/**", actions: [pull, push]}
+identities:
+  # alice's CI key: push to her namespace only. reserve: false because
+  # alice/ is her own namespace, not a shared one.
+  npub18m49tds6ztwhal7pflc0yty9y49dya0822k38xznruwlqqcjqqrqkg7qta:
+    - {repos: "alice/**", actions: [pull, push], reserve: false}
+anonymous:
+  - {repos: "**", actions: [pull]}

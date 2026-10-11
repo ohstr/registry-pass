@@ -127,6 +127,25 @@ func TestLongSessionManyRequests(t *testing.T) {
 	}
 }
 
+// TestBotInMemberNamespace: a CI key granted alice/** with reserve: false
+// pushes there, and alice keeps her own namespace.
+func TestBotInMemberNamespace(t *testing.T) {
+	grants := fmt.Sprintf(`
+templates: [{repos: "{name}/**", actions: [pull, push]}]
+identities:
+  %s: [{repos: "alice/**", actions: [pull, push], reserve: false}]
+`, builder.Npub)
+	p := startPass(t, passOpts{grants: grants})
+	reg := startRegistryV3(t, p)
+	if err := push(t, reg, "alice/agent:ci", randomImage(t, 1), p.creds(builder)); err != nil {
+		t.Fatalf("CI key push: %v", err)
+	}
+	if err := push(t, reg, "alice/agent:dev", randomImage(t, 1), p.creds(alice)); err != nil {
+		t.Fatalf("alice lost her namespace: %v", err)
+	}
+	mustDenied(t, "CI key outside alice/", push(t, reg, "bob/agent:ci", randomImage(t, 1), p.creds(builder)))
+}
+
 // TestStaleMembershipKeepsStaticUsers: when the membership source stops
 // syncing, members are denied after staleAfter while static users keep
 // pulling (onStale: denyMembers).

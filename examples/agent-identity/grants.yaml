@@ -1,0 +1,8 @@
+# An agent with its own key publishes its results next to its image.
+templates:
+  - {repos: "{name}/**", actions: [pull, push]}
+identities:
+  # alice's summarizer agent
+  npub1rzrzavpjy0tqurkynudmlm993yu6v9syu5474vldp7ucfcxa95gs84exe0:
+    - {repos: "alice/summarizer/results/**", actions: [pull, push], reserve: false}
+    - {repos: "alice/summarizer", actions: [pull], reserve: false}
