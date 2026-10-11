@@ -7,6 +7,9 @@
 - Adds `reserve: false` on a grant, so a CI or agent key can be given access to
   a member's own namespace without the name being reserved and the member
   locked out of it.
+- Adds agent skills for operating registry-pass, writing grants, managing
+  membership and setting up clients, built into the binary:
+  `registry-pass skills list`, `show` and `install`.
 
 ### Fixed
 

@@ -31,6 +31,7 @@ commands:
   config print     show the effective configuration and where each value came from
   config env       list every environment override
   keygen           create a signing key and self-signed certificate
+  skills           list, show or install the built-in agent skills
   version          print the version
 
 The config file defaults to $REGISTRY_PASS_CONFIG or /etc/registry-pass/config.yaml.
@@ -68,6 +69,8 @@ func run(ctx context.Context, args, environ []string, stdout, stderr io.Writer) 
 		return configCmd(rest[0], *configPath, env, stdout, stderr)
 	case "keygen":
 		return keygen(rest, stdout, stderr)
+	case "skills":
+		return skillsCmd(rest, stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, version)
 		return 0

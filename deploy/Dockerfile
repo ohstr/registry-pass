@@ -7,6 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
+COPY skills ./skills
 ARG VERSION=dev
 RUN go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/registry-pass ./cmd/registry-pass \
  && go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/docker-credential-registry-pass ./cmd/docker-credential-registry-pass

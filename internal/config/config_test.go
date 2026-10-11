@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ohstr/registry-pass/internal/testkit"
+	"gopkg.in/yaml.v3"
 )
 
 var authority = testkit.NewKey("authority")
@@ -348,6 +349,38 @@ func TestExampleConfigIsValid(t *testing.T) {
 	body := strings.Replace(string(data), "npub1replacewiththeauthoritykey", authority.Npub, 1)
 	if _, _, err := Load(write(t, body), nil); err != nil {
 		t.Fatalf("deploy/examples/config.yaml: %v", err)
+	}
+}
+
+// TestSkillConfigReferenceMatchesCode keeps the agent skill's settings
+// reference in step with the schema: no unknown keys, none missing.
+func TestSkillConfigReferenceMatchesCode(t *testing.T) {
+	data, err := os.ReadFile("../../skills/registry-pass-operate/references/config.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, block, ok := strings.Cut(string(data), "```yaml\n")
+	if !ok {
+		t.Fatal("no yaml block")
+	}
+	block, _, _ = strings.Cut(block, "```")
+	cfg := Default()
+	dec := yaml.NewDecoder(strings.NewReader(block))
+	dec.KnownFields(true)
+	if err := dec.Decode(&cfg); err != nil {
+		t.Fatalf("reference has keys the schema doesn't: %v", err)
+	}
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(block), &root); err != nil {
+		t.Fatal(err)
+	}
+	present := Origins{}
+	markOrigins(root.Content[0], "", present)
+	d := Default()
+	for name, f := range envFields(&d) {
+		if _, ok := present[f.path]; !ok {
+			t.Errorf("reference is missing %s (%s)", f.path, name)
+		}
 	}
 }
 
