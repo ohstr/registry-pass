@@ -1,0 +1,9 @@
+# Members push to their own namespace and delete there, so a member whose
+# namespace is full can free space; anyone pulls.
+templates:
+  - {repos: "{name}/**", actions: [pull, push, delete]}
+anonymous:
+  - {repos: "**", actions: [pull]}
+reservedNames: [library, verified, admin]
+# The operator's key may read any namespace's /usage.
+catalog: [npub1s7w8pw94m250pwpkaa58sys3vvqypmr9nwjx7crr2kyqv6m9a7zqmvgkrq]

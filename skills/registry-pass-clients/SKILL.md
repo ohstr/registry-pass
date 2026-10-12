@@ -73,5 +73,24 @@ in a `docker-registry` secret and `imagePullSecrets`.
 | 401 on every request | wrong `realm`/`service`, clock skew, or `lifetime` above the server's `login.maxLifetime` |
 | 401 `insufficient_scope` / `denied` on push | no grant for that repository; the token was issued without it |
 | push works, then fails after hours | the key was removed from membership or grants |
+| push `denied`, pull still works, other namespaces push | the namespace is at its storage quota: delete images (below) |
 | `realm host ... is a private or link-local address` | crane/kaniko/ko refuse IP realms; use a DNS name |
 | helper error about permissions | `chmod 600` the key file |
+
+## Storage quota
+
+When the registry caps each namespace, a full namespace gets no push but
+keeps pull and delete. Docker only says `denied`. Check usage with the same
+login the helper makes:
+
+```sh
+curl -s -u "$(echo registry.example | docker-credential-registry-pass get | jq -r '.Username + ":" + .Secret')" \
+  https://pass.example/usage/alice
+# {"used":10956718080,"quota":10737418240,"blobs":812}
+```
+
+Free space by deleting manifests (the template must grant `delete`), e.g.
+`crane delete registry.example/alice/agent@sha256:...` or `regctl tag rm`.
+Push comes back at the next token. The disk is reclaimed when the operator's
+garbage collection runs. For more space, ask an authority to raise the
+namespace's quota.

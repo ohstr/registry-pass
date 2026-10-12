@@ -22,7 +22,7 @@ staticUsers:                   # Basic user + bcrypt password
   node-pull:
     bcrypt: "$2a$12$..."
     grants: [{repos: "**", actions: [pull]}]
-catalog: []                    # keys allowed to list the catalog
+catalog: []                    # keys allowed to list the catalog (and read any namespace's /usage)
 deny: []                       # keys always refused
 ```
 
@@ -89,5 +89,6 @@ file is logged and counted in
 | Curated public catalog | curator `identities: verified/** pull,push,delete` + `anonymous: verified/** pull` |
 | Kubernetes nodes pull everything | `staticUsers: node-pull: grants ** pull` |
 | Block someone now | add the key to `deny` and reload |
+| Members clean up under a storage quota | `templates: {name}/** pull,push,delete` (a full namespace keeps pull and delete, never push) |
 
 Make a bcrypt hash: `htpasswd -nbBC 12 '' "$PASSWORD" | cut -d: -f2`.
