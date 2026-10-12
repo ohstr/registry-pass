@@ -31,6 +31,7 @@ commands:
   config print     show the effective configuration and where each value came from
   config env       list every environment override
   keygen           create a signing key and self-signed certificate
+  quota rebuild    recount every namespace's storage from the registry
   skills           list, show or install the built-in agent skills
   version          print the version
 
@@ -69,6 +70,8 @@ func run(ctx context.Context, args, environ []string, stdout, stderr io.Writer) 
 		return configCmd(rest[0], *configPath, env, stdout, stderr)
 	case "keygen":
 		return keygen(rest, stdout, stderr)
+	case "quota":
+		return quotaCmd(ctx, rest, *configPath, env, stdout, stderr)
 	case "skills":
 		return skillsCmd(rest, stdout, stderr)
 	case "version":
@@ -115,6 +118,7 @@ func serve(ctx context.Context, path string, env []string, stderr io.Writer) int
 		log.Error("startup failed", "err", err)
 		return 1
 	}
+	a.ConfigPath, a.Environ = path, env
 	l, err := a.Server.Listen()
 	if err != nil {
 		a.Close()

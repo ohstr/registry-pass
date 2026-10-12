@@ -9,18 +9,22 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/ohstr/nmilat/nip19"
 	"github.com/ohstr/registry-pass/internal/config"
 	"github.com/ohstr/registry-pass/internal/grants"
 	"github.com/ohstr/registry-pass/internal/login"
 	"github.com/ohstr/registry-pass/internal/membership"
+	"github.com/ohstr/registry-pass/internal/quota"
 	"github.com/ohstr/registry-pass/internal/server"
 	"github.com/ohstr/registry-pass/internal/token"
 )
@@ -34,7 +38,13 @@ type App struct {
 	Server  *server.Server
 	Store   *membership.Store
 	Sources []membership.Source
+	Quota   *quota.Module // nil when the quota module is off
 	Log     *slog.Logger
+
+	// ConfigPath and Environ re-read the quota limits on reload; an empty
+	// path keeps the limits the app was built with.
+	ConfigPath string
+	Environ    []string
 
 	closers []func()
 }
@@ -123,8 +133,20 @@ func Build(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, err
 			srcs = append(srcs, s)
 		}
 	}
+	if cfg.Quota.Enabled {
+		st, err := quota.Open(cfg.Quota.Store, time.Second)
+		if err != nil {
+			a.Close()
+			return nil, fmt.Errorf("quota.store: %w", err)
+		}
+		a.closers = append(a.closers, func() { st.Close() })
+		if a.Quota, err = NewQuota(cfg, iss, st, a.Store, log); err != nil {
+			a.Close()
+			return nil, err
+		}
+	}
 	a.Server, err = server.New(server.Deps{
-		Config: cfg, Verifier: verifier, Issuer: iss, Policy: policy, Store: a.Store, Sources: srcs, Log: log,
+		Config: cfg, Verifier: verifier, Issuer: iss, Policy: policy, Store: a.Store, Quota: a.Quota, Sources: srcs, Log: log,
 	})
 	if err != nil {
 		a.Close()
@@ -133,14 +155,91 @@ func Build(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, err
 	return a, nil
 }
 
+// QuotaLimits turns the quota settings into limits.
+func QuotaLimits(q config.Quota) quota.Limits {
+	l := quota.Limits{
+		Default: q.Default.Bytes(), PerName: map[string]int64{},
+		ExemptNames: map[string]bool{}, ExemptKeys: map[string]bool{},
+	}
+	for n, sz := range q.PerName {
+		l.PerName[n] = sz.Bytes()
+	}
+	for _, e := range q.Exempt {
+		// Validate normalized public keys to lowercase hex.
+		if _, err := nip19.ParsePublicKey(e); err == nil && len(e) == 64 {
+			l.ExemptKeys[e] = true
+		} else {
+			l.ExemptNames[e] = true
+		}
+	}
+	return l
+}
+
+// NewQuota builds the quota module on an open store. members, when not
+// nil, supplies authority-signed quotas.
+func NewQuota(cfg *config.Config, iss *token.Issuer, st *quota.Store, members *membership.Store, log *slog.Logger) (*quota.Module, error) {
+	q := cfg.Quota
+	base, err := url.Parse(strings.TrimSuffix(q.Registry, "/") + "/")
+	if err != nil {
+		return nil, fmt.Errorf("quota.registry: %w", err)
+	}
+	client, err := membership.NewHTTPClient(q.RegistryCAFile, q.Timeout.D())
+	if err != nil {
+		return nil, fmt.Errorf("quota.registryCAFile: %w", err)
+	}
+	eventsToken, err := config.ReadSecret(q.EventsTokenFile)
+	if err != nil {
+		return nil, fmt.Errorf("quota.eventsTokenFile: %w", err)
+	}
+	service, lifetime := cfg.QuotaService(), cfg.Token.Lifetime.D()
+	mint := func(access []grants.Access) (string, error) {
+		tok, err := iss.Issue(cfg.Issuer, service, access, time.Now().Add(lifetime))
+		return tok.Raw, err
+	}
+	var signed func(string) (int64, bool)
+	if members != nil {
+		signed = func(name string) (int64, bool) { return members.Snapshot().Quota(name) }
+	}
+	return quota.New(quota.Options{
+		Store: st, Registry: &quota.Registry{Base: base, Client: client, Mint: mint},
+		Limits: QuotaLimits(q), Signed: signed, EventsToken: eventsToken,
+		RebuildInterval: q.RebuildInterval.D(), Log: log,
+	}), nil
+}
+
+// ReloadQuota re-reads the quota limits from the config file; an invalid
+// file leaves the current limits in force.
+func (a *App) ReloadQuota() error {
+	if a.Quota == nil || a.ConfigPath == "" {
+		return nil
+	}
+	cfg, _, err := config.Load(a.ConfigPath, a.Environ)
+	if err != nil {
+		a.Log.Error("quota reload failed; keeping the previous limits", "err", err)
+		return err
+	}
+	a.Quota.SetLimits(QuotaLimits(cfg.Quota))
+	a.Log.Info("quota limits reloaded")
+	return nil
+}
+
+func (a *App) reload() {
+	_ = a.ReloadGrants()
+	_ = a.ReloadQuota()
+}
+
 func (a *App) buildMembership(ctx context.Context) error {
 	m := a.Config.Membership
-	a.Store = membership.New(membership.Options{
+	opts := membership.Options{
 		Authorities: m.Authorities, Kind: m.Kind, DPrefix: m.DPrefix, NameMismatch: m.NameMismatch,
 		Resolve: m.Resolve, FutureSkew: m.FutureSkew.D(), HonorDeletions: m.HonorDeletions,
 		DuplicatePubkey: m.DuplicatePubkey, StaleAfter: m.StaleAfter.D(), OnStale: m.OnStale,
 		Heartbeat: m.Heartbeat.Enabled, HeartbeatD: m.Heartbeat.D,
-	})
+	}
+	if a.Config.Quota.Enabled {
+		opts.QuotaDPrefix = a.Config.Quota.DPrefix
+	}
+	a.Store = membership.New(opts)
 	for i, sc := range m.Sources {
 		src, err := a.buildSource(ctx, sc)
 		if err != nil {
@@ -242,6 +341,13 @@ func (a *App) Run(ctx context.Context, l server.Listeners) error {
 		defer wg.Done()
 		a.watchGrants(ctx)
 	}()
+	if a.Quota != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			a.Quota.Run(ctx)
+		}()
+	}
 	a.Log.Info("registry-pass started", "listen", l.Main.Addr().String(), "services", a.Config.Services,
 		"membership", a.Config.Membership.Enabled, "sources", len(a.Sources))
 	err := a.Server.Run(ctx, l)
@@ -262,7 +368,7 @@ func (a *App) watchGrants(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ch:
-				_ = a.ReloadGrants()
+				a.reload()
 			}
 		}
 	case "watch":
@@ -277,6 +383,16 @@ func (a *App) watchGrants(ctx context.Context) {
 			a.Log.Error("grants watch unavailable", "err", err)
 			return
 		}
+		// The quota limits live in the config file: watch it too.
+		cfgPath := ""
+		if a.Quota != nil && a.ConfigPath != "" {
+			cfgPath = a.ConfigPath
+			if filepath.Dir(cfgPath) != filepath.Dir(path) {
+				if err := w.Add(filepath.Dir(cfgPath)); err != nil {
+					a.Log.Error("config watch unavailable", "err", err)
+				}
+			}
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -285,8 +401,14 @@ func (a *App) watchGrants(ctx context.Context) {
 				if !ok {
 					return
 				}
-				if filepath.Clean(ev.Name) == filepath.Clean(path) || filepath.Base(ev.Name) == "..data" {
+				name := filepath.Clean(ev.Name)
+				switch {
+				case filepath.Base(ev.Name) == "..data":
+					a.reload()
+				case name == filepath.Clean(path):
 					_ = a.ReloadGrants()
+				case cfgPath != "" && name == filepath.Clean(cfgPath):
+					_ = a.ReloadQuota()
 				}
 			}
 		}

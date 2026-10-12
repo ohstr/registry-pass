@@ -243,6 +243,9 @@ type Subject struct {
 // Denied reports whether pubkey is on the deny list.
 func (p *Policy) Denied(pubkey string) bool { return p.deny[pubkey] }
 
+// ReadAll reports whether pubkey may list the whole catalog.
+func (p *Policy) ReadAll(pubkey string) bool { return p.catalog[pubkey] && !p.deny[pubkey] }
+
 // IsStaticUser reports whether name is a configured static user.
 func (p *Policy) IsStaticUser(name string) bool {
 	_, ok := p.staticUsers[name]
