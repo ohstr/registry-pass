@@ -7,13 +7,13 @@
 - Adds an optional storage quota per top-level namespace (`quota.enabled`):
   a namespace at or over its quota gets no push in new passes, but keeps pull
   and delete. Usage comes from the registry's notifications and a recount of
-  its API (`registry-pass quota rebuild`).
+  its API (`registry-pass quota rebuild`). (#7)
 - Adds authority-signed quota records (`d` = `quota:<name>`), so an
-  authority can raise one namespace's quota without editing the config.
+  authority can raise one namespace's quota without editing the config. (#7)
 - Adds `GET /usage/<name>` for a namespace's owner or a catalog key, and the
-  `registry_pass_quota_used_bytes` and `registry_pass_quota_bytes` metrics.
+  `registry_pass_quota_used_bytes` and `registry_pass_quota_bytes` metrics. (#7)
 - Adds an optional volume for the quota store to the Helm chart
-  (`quotaStore.enabled`).
+  (`quotaStore.enabled`). (#7)
 
 ## [0.2.0]
 
