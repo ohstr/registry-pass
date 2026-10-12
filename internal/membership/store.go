@@ -4,6 +4,7 @@ package membership
 
 import (
 	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/ohstr/nmilat/nip01"
 	"github.com/ohstr/nmilat/nip09"
 	"github.com/ohstr/nmilat/nip19"
+	"github.com/ohstr/registry-pass/internal/bytesize"
 )
 
 // Options configures a Store; it mirrors config.Membership.
@@ -29,7 +31,10 @@ type Options struct {
 	OnStale         string // denyMembers | denyAll | keepLastView
 	Heartbeat       bool
 	HeartbeatD      string
-	Now             func() time.Time
+	// QuotaDPrefix, when set, accepts authority-signed quota records
+	// (d = QuotaDPrefix + name); empty refuses them as other_d.
+	QuotaDPrefix string
+	Now          func() time.Time
 }
 
 // Rejection classifies an event the store refused; it labels metrics.
@@ -61,7 +66,11 @@ type Record struct {
 	Status    string
 	CreatedAt uint64
 	ID        string
-	event     *nip01.Event
+	// Quota is a quota record's size in bytes; 0 for member records and
+	// for quota records that can't be read.
+	Quota int64
+	quota bool
+	event *nip01.Event
 }
 
 // Member is an alive member resolved from the records.
@@ -75,6 +84,7 @@ type Member struct {
 type Snapshot struct {
 	byPubkey  map[string]Member
 	conflicts map[string]bool
+	quotas    map[string]int64
 	Size      int
 	Records   int
 	Conflicts int
@@ -206,10 +216,15 @@ func (s *Store) ingest(ev *nip01.Event) Rejection {
 		s.heartbeat = ev.CreatedAt
 		return ""
 	}
-	if !strings.HasPrefix(d, s.opts.DPrefix) || len(d) == len(s.opts.DPrefix) {
+	var rec *Record
+	switch q := s.opts.QuotaDPrefix; {
+	case q != "" && strings.HasPrefix(d, q) && len(d) > len(q):
+		rec = s.parseQuota(ev, d)
+	case !strings.HasPrefix(d, s.opts.DPrefix) || len(d) == len(s.opts.DPrefix):
 		return s.reject(RejectOtherD)
+	default:
+		rec = s.parseRecord(ev, d)
 	}
-	rec := s.parseRecord(ev, d)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -316,11 +331,69 @@ func (s *Store) parseRecord(ev *nip01.Event, d string) *Record {
 	return rec
 }
 
+type quotaContent struct {
+	Name  *string         `json:"name"`
+	Quota json.RawMessage `json:"quota"`
+}
+
+// parseQuota reads a quota record: {"name": "alice", "quota": "50GiB"}
+// (or a number of bytes). One that can't be read sets no quota, so the
+// configured one applies.
+func (s *Store) parseQuota(ev *nip01.Event, d string) *Record {
+	rec := &Record{
+		Authority: ev.PubKey, D: d, Name: strings.TrimPrefix(d, s.opts.QuotaDPrefix),
+		Status: statusInvalid, CreatedAt: ev.CreatedAt, ID: ev.ID, quota: true, event: ev,
+	}
+	var c quotaContent
+	if err := json.Unmarshal([]byte(ev.Content), &c); err != nil {
+		return rec
+	}
+	if (c.Name == nil || *c.Name != rec.Name) && s.opts.NameMismatch != "useD" {
+		return rec
+	}
+	var n int64
+	var str string
+	if err := json.Unmarshal(c.Quota, &str); err == nil {
+		v, err := bytesize.Parse(str)
+		if err != nil {
+			return rec
+		}
+		n = v
+	} else if err := json.Unmarshal(c.Quota, &n); err != nil {
+		return rec
+	}
+	if n <= 0 {
+		return rec
+	}
+	rec.Quota, rec.Status = n, StatusAlive
+	return rec
+}
+
 // rebuild resolves records into a new snapshot. Callers hold s.mu.
 func (s *Store) rebuild() {
 	bySlot := map[string][]*Record{}
+	quotaSlots := map[string][]*Record{}
+	members := 0
 	for k, r := range s.records {
+		if r.quota {
+			quotaSlots[k.d] = append(quotaSlots[k.d], r)
+			continue
+		}
 		bySlot[k.d] = append(bySlot[k.d], r)
+		members++
+	}
+	quotas := map[string]int64{}
+	for _, recs := range quotaSlots {
+		// The newest signed quota wins, whichever authority signed it.
+		var best *Record
+		for _, r := range recs {
+			if best == nil || nip01.Supersedes(r.event, best.event) {
+				best = r
+			}
+		}
+		if best.Quota > 0 {
+			quotas[best.Name] = best.Quota
+		}
 	}
 	type claim struct {
 		member Member
@@ -337,7 +410,7 @@ func (s *Store) rebuild() {
 			at:     win.CreatedAt,
 		})
 	}
-	snap := &Snapshot{byPubkey: map[string]Member{}, conflicts: map[string]bool{}, Records: len(s.records)}
+	snap := &Snapshot{byPubkey: map[string]Member{}, conflicts: map[string]bool{}, quotas: quotas, Records: members}
 	for pub, cs := range claims {
 		if len(cs) == 1 {
 			snap.byPubkey[pub] = cs[0].member
@@ -437,6 +510,15 @@ func (s *Store) Lookup(pubkey string) Lookup {
 	}
 	return l
 }
+
+// Quota returns the authority-signed quota of namespace name, in bytes.
+func (snap *Snapshot) Quota(name string) (int64, bool) {
+	q, ok := snap.quotas[name]
+	return q, ok
+}
+
+// Quotas returns every authority-signed quota by namespace.
+func (snap *Snapshot) Quotas() map[string]int64 { return maps.Clone(snap.quotas) }
 
 // Member returns the resolved member for pubkey regardless of freshness.
 func (snap *Snapshot) Member(pubkey string) (Member, bool) {
