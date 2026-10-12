@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ohstr/registry-pass/internal/bytesize"
 	"gopkg.in/yaml.v3"
 )
 
@@ -109,6 +110,36 @@ func (r *Rate) UnmarshalYAML(n *yaml.Node) error {
 }
 
 func (r Rate) MarshalYAML() (any, error) { return r.String(), nil }
+
+// Size is a number of bytes written as a size like "10GiB".
+type Size int64
+
+// Bytes returns s as a number of bytes.
+func (s Size) Bytes() int64 { return int64(s) }
+
+func (s Size) String() string { return bytesize.Format(int64(s)) }
+
+// Set parses v as a size.
+func (s *Size) Set(v string) error {
+	n, err := bytesize.Parse(v)
+	if err != nil {
+		return err
+	}
+	*s = Size(n)
+	return nil
+}
+
+func (s *Size) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind != yaml.ScalarNode {
+		return fmt.Errorf("line %d: size must be a string like 10GiB", n.Line)
+	}
+	if err := s.Set(n.Value); err != nil {
+		return fmt.Errorf("line %d: %w", n.Line, err)
+	}
+	return nil
+}
+
+func (s Size) MarshalYAML() (any, error) { return s.String(), nil }
 
 // Setter is implemented by scalar types that env overrides can set.
 type Setter interface{ Set(string) error }

@@ -98,6 +98,20 @@ rateLimit:
   failuresPerIP: 30/min
   burst: 20
 
+quota:
+  enabled: false              # off = no /events, /usage or quota checks (v0.2.0 behaviour)
+  default: 10GiB              # each top-level namespace
+  perName: {}                 # name → size, overrides default; file-only (no env)
+  exempt: []                  # namespace names or pubkeys never capped
+  registry: ""                # (required when enabled) registry API URL registry-pass walks, e.g. http://registry:5000
+  registryCAFile: ""
+  service: ""                 # audience of registry-pass's own tokens; "" = first of services
+  store: /var/lib/registry-pass/quota.db   # bbolt file on a volume; rebuilt when missing
+  eventsTokenFile: ""         # (required when enabled) bearer token the registry's notifications send
+  dPrefix: "quota:"           # d tag of authority-signed quota records
+  rebuildInterval: 24h        # full recount; 0 = only on start (store missing) and `quota rebuild`
+  timeout: 30s                # each registry API call
+
 logging:
   level: info                 # debug | info | warn | error
   format: json                # json | text

@@ -1,0 +1,9 @@
+# The quota part of registry-pass's config.yaml.
+quota:
+  enabled: true
+  default: 10GiB                       # each member's namespace
+  perName: {verified: 200GiB}          # overrides the default
+  exempt: [npub19lnxqr9jj8t3v9gsgmc32sh5yznhma8vrjlqd8u6kt9tahn4zplq27vvpd]   # a mirror job is never capped
+  registry: http://registry:5000       # the registry API, as registry-pass reaches it
+  eventsTokenFile: /run/secrets/events.token
+  store: /var/lib/registry-pass/quota.db   # on a volume

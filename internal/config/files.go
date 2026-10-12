@@ -21,6 +21,15 @@ func readSecret(path string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+// ReadSecret reads a secret file's trimmed contents.
+func ReadSecret(path string) (string, error) {
+	s, err := readSecret(path)
+	if err == nil && s == "" {
+		err = fmt.Errorf("%s: empty", path)
+	}
+	return s, err
+}
+
 // ReadFileLimited reads path, refusing files larger than limit bytes.
 func ReadFileLimited(path string, limit int64) ([]byte, error) {
 	f, err := os.Open(path)
@@ -58,6 +67,12 @@ func (cfg *Config) CheckFiles() error {
 	check("server.tls.certFile", cfg.Server.TLS.CertFile)
 	check("server.tls.keyFile", cfg.Server.TLS.KeyFile)
 	check("grants.file", cfg.Grants.File)
+	if cfg.Quota.Enabled {
+		check("quota.registryCAFile", cfg.Quota.RegistryCAFile)
+		if _, err := ReadSecret(cfg.Quota.EventsTokenFile); err != nil {
+			c.addf("quota.eventsTokenFile: %v", err)
+		}
+	}
 	if cfg.Membership.Enabled {
 		for i, s := range cfg.Membership.Sources {
 			where := fmt.Sprintf("membership.sources[%d]", i)
