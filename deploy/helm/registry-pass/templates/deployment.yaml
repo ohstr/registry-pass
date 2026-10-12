@@ -7,7 +7,12 @@ metadata:
     app.kubernetes.io/name: registry-pass
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
+  {{- if .Values.quotaStore.enabled }}
+  replicas: 1
+  strategy: {type: Recreate}
+  {{- else }}
   replicas: {{ .Values.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: registry-pass
@@ -25,6 +30,9 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
+        {{- if .Values.quotaStore.enabled }}
+        fsGroup: 65532
+        {{- end }}
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: registry-pass
@@ -56,7 +64,15 @@ spec:
           volumeMounts:
             - {name: config, mountPath: /etc/registry-pass, readOnly: true}
             - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            {{- if .Values.quotaStore.enabled }}
+            - {name: quota, mountPath: /var/lib/registry-pass}
+            {{- end }}
       volumes:
+        {{- if .Values.quotaStore.enabled }}
+        - name: quota
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-registry-pass-quota" .Release.Name) .Values.quotaStore.existingClaim }}
+        {{- end }}
         - name: config
           configMap: {name: {{ .Release.Name }}-registry-pass}
         - name: secrets

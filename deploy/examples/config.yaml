@@ -30,3 +30,14 @@ membership:
 
 grants:
   file: /etc/registry-pass/grants.yaml
+
+# Storage quota per namespace; the registry must send its notifications to
+# /events with the same token (see examples/storage-quota).
+# quota:
+#   enabled: true
+#   default: 10GiB
+#   perName: {}
+#   exempt: []
+#   registry: http://registry:5000
+#   eventsTokenFile: /run/secrets/events.token
+#   store: /var/lib/registry-pass/quota.db

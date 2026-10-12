@@ -12,5 +12,6 @@ Ways to run a registry where a community hosts its agents. Each folder has a
 | [team-agents](team-agents/) | A private namespace shared by a team |
 | [runtime-nodes](runtime-nodes/) | Servers and Kubernetes nodes that run agents and only pull |
 | [agent-identity](agent-identity/) | An agent with its own key publishing its results |
+| [storage-quota](storage-quota/) | Cap each member's namespace so no one fills the disk |
 
 The keys in these files are placeholders: replace them with your own.

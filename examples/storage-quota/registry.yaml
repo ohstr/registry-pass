@@ -1,0 +1,19 @@
+# The parts of Distribution's config.yml the quota needs.
+auth:
+  token:
+    realm: https://pass.example/token
+    service: registry.example
+    issuer: registry-pass
+    rootcertbundle: /etc/registry/pass.crt
+storage:
+  delete:
+    enabled: true          # members free space by deleting manifests
+notifications:
+  endpoints:
+    - name: registry-pass
+      url: http://registry-pass:5001/events
+      headers:
+        Authorization: [Bearer replace-with-the-events-token]
+      timeout: 5s
+      threshold: 5
+      backoff: 1s

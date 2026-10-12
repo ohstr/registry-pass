@@ -13,6 +13,9 @@ type metrics struct {
 	tokens      *prometheus.CounterVec
 	rateLimited *prometheus.CounterVec
 	reloads     *prometheus.CounterVec
+
+	quotaRefused prometheus.Counter
+	quotaEvents  prometheus.Counter
 }
 
 func newMetrics(s *Server) *metrics {
@@ -38,6 +41,20 @@ func newMetrics(s *Server) *metrics {
 	reg.MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Name: "registry_pass_certificate_expiry_seconds", Help: "Seconds until the signing certificate expires.",
 	}, func() float64 { return time.Until(s.issuer.NotAfter()).Seconds() }))
+
+	// Unregistered when the module is off, so they never show.
+	m.quotaRefused = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "registry_pass_quota_push_refused_total", Help: "Pushes left out of a token because the namespace is full.",
+	})
+	m.quotaEvents = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "registry_pass_quota_recounts_queued_total", Help: "Repository recounts queued from registry notifications.",
+	})
+	if s.quota != nil {
+		reg.MustRegister(m.quotaRefused, m.quotaEvents, &quotaCollector{q: s.quota},
+			prometheus.NewCounterFunc(prometheus.CounterOpts{
+				Name: "registry_pass_quota_recount_errors_total", Help: "Repository recounts that failed and were retried.",
+			}, func() float64 { return float64(s.quota.ScanErrors()) }))
+	}
 
 	if s.store != nil {
 		reg.MustRegister(

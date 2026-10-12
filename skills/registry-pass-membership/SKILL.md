@@ -1,6 +1,6 @@
 ---
 name: registry-pass-membership
-description: Manage who is a member of a registry-pass registry by publishing membership records signed by the authority key - add a member, change their key, rename or remove them, and keep the heartbeat going. Use when onboarding or revoking members, choosing a membership source (relay, file, HTTP feed), setting up the relay reader key, or when a member is refused because the view is stale, their record is invalid, or two records claim the same key.
+description: Manage who is a member of a registry-pass registry by publishing membership records signed by the authority key - add a member, change their key, rename or remove them, raise one namespace's storage quota, and keep the heartbeat going. Use when onboarding or revoking members, granting a namespace more space, choosing a membership source (relay, file, HTTP feed), setting up the relay reader key, or when a member is refused because the view is stale, their record is invalid, or two records claim the same key.
 license: Unlicense
 ---
 
@@ -53,6 +53,33 @@ are alive the key is refused (`duplicatePubkey: denyAll`).
 Changes apply at the member's next token request; tokens already issued
 expire within `token.lifetime`. A NIP-09 deletion of the record by the same
 authority also removes it (`honorDeletions`).
+
+## Raising a namespace's quota
+
+With the quota module on (`quota.enabled`), an authority sets one
+namespace's storage quota with a record of the same kind, `d` =
+`quota:<name>` (`quota.dPrefix`):
+
+```sh
+quota() { # name size
+  cat > "quota-$1.json" <<EOF
+{"kind": 30078, "created_at": $(date +%s), "tags": [["d", "quota:$1"]],
+ "content": "{\"name\":\"$1\",\"quota\":\"$2\"}"}
+EOF
+  ncli publish -e "quota-$1.json" -s wss://relay.example \
+    --signer bunker+unix:///run/authority/signer.sock
+}
+
+quota alice 50GiB
+```
+
+- It overrides `quota.perName` and `quota.default`, and applies at the
+  member's next token. The newest record wins, whichever authority signed it.
+- `quota` is a size (`50GiB`, `500MB`) or a number of bytes.
+- A record signed by another key is ignored (`not_authority`). One that
+  can't be read, or a NIP-09 deletion of it, falls back to the config.
+- Check it with `GET /usage/alice` (`quota` field) or
+  `registry_pass_quota_bytes{name="alice"}`.
 
 ## Sources
 

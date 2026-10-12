@@ -50,6 +50,7 @@ func (cfg *Config) Validate() error {
 	cfg.validateMembership(c)
 	cfg.validateGrants(c)
 	cfg.validateRateLimit(c)
+	cfg.validateQuota(c)
 	c.oneOf("logging.level", cfg.Logging.Level, "debug", "info", "warn", "error")
 	c.oneOf("logging.format", cfg.Logging.Format, "json", "text")
 
@@ -329,6 +330,58 @@ func (cfg *Config) validateRateLimit(c *checker) {
 	}
 	if r.Burst < 1 {
 		c.addf("rateLimit.burst: must be at least 1")
+	}
+}
+
+func (cfg *Config) validateQuota(c *checker) {
+	q := &cfg.Quota
+	if !q.Enabled {
+		return
+	}
+	names, _ := regexp.Compile(cfg.Grants.NamePattern)
+	validName := func(n string) bool { return names == nil || names.MatchString(n) }
+	if q.Default <= 0 {
+		c.addf("quota.default: must be positive")
+	}
+	for n, sz := range q.PerName {
+		if !validName(n) {
+			c.addf("quota.perName: %q does not match grants.namePattern", n)
+		}
+		if sz <= 0 {
+			c.addf("quota.perName[%s]: must be positive", n)
+		}
+	}
+	for i, e := range q.Exempt {
+		if hex, err := nip19.ParsePublicKey(e); err == nil {
+			q.Exempt[i] = hex
+		} else if !validName(e) {
+			c.addf("quota.exempt[%d]: %q is neither a public key nor a namespace name", i, e)
+		}
+	}
+	if u, err := url.Parse(q.Registry); q.Registry == "" || err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		c.addf("quota.registry: %q is not an http(s) URL of the registry", q.Registry)
+	}
+	if cfg.QuotaService() == "" {
+		c.addf("quota.service: required")
+	}
+	if q.Store == "" {
+		c.addf("quota.store: required")
+	}
+	if q.EventsTokenFile == "" {
+		c.addf("quota.eventsTokenFile: required, the registry's notifications authenticate with it")
+	}
+	if q.DPrefix == "" {
+		c.addf("quota.dPrefix: must not be empty")
+	} else if m := cfg.Membership; strings.HasPrefix(q.DPrefix, m.DPrefix) || strings.HasPrefix(m.DPrefix, q.DPrefix) {
+		c.addf("quota.dPrefix: %q overlaps membership.dPrefix %q", q.DPrefix, m.DPrefix)
+	} else if m.Heartbeat.Enabled && strings.HasPrefix(m.Heartbeat.D, q.DPrefix) {
+		c.addf("quota.dPrefix: %q overlaps membership.heartbeat.d %q", q.DPrefix, m.Heartbeat.D)
+	}
+	if q.Timeout <= 0 {
+		c.addf("quota.timeout: must be positive")
+	}
+	if a := cfg.Server.TokenPath; a == "/events" || a == "/quota/rebuild" || strings.HasPrefix(a, "/usage/") {
+		c.addf("server.tokenPath: %q collides with a quota endpoint", a)
 	}
 }
 

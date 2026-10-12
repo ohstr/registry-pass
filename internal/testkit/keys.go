@@ -69,6 +69,12 @@ func Password(ev *nip01.Event) string {
 	return base64.RawURLEncoding.EncodeToString(data)
 }
 
+// Quota builds a namespace quota record signed by k.
+func (k Key) Quota(kind int, prefix, name, size string, created time.Time) *nip01.Event {
+	content, _ := json.Marshal(map[string]string{"name": name, "quota": size})
+	return k.Sign(kind, created, string(content), []string{"d", prefix + name})
+}
+
 // Member builds a membership record signed by authority k.
 func (k Key) Member(kind int, prefix, name, pubkey, status string, created time.Time) *nip01.Event {
 	content, _ := json.Marshal(map[string]string{"name": name, "pubkey": pubkey, "status": status})

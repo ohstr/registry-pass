@@ -15,6 +15,7 @@ import (
 	"github.com/ohstr/registry-pass/internal/grants"
 	"github.com/ohstr/registry-pass/internal/login"
 	"github.com/ohstr/registry-pass/internal/membership"
+	"github.com/ohstr/registry-pass/internal/quota"
 	"github.com/ohstr/registry-pass/internal/token"
 )
 
@@ -33,6 +34,7 @@ type Deps struct {
 	Issuer   *token.Issuer
 	Policy   *grants.Policy
 	Store    *membership.Store // nil when membership is disabled
+	Quota    *quota.Module     // nil when the quota module is off
 	Sources  []Source
 	Log      *slog.Logger
 	Now      func() time.Time
@@ -46,6 +48,7 @@ type Server struct {
 	policy   atomic.Pointer[grants.Policy]
 	static   *grants.StaticAuth
 	store    *membership.Store
+	quota    *quota.Module
 	sources  []Source
 	log      *slog.Logger
 	now      func() time.Time
@@ -73,7 +76,7 @@ func New(d Deps) (*Server, error) {
 		d.Now = time.Now
 	}
 	s := &Server{
-		cfg: d.Config, verifier: d.Verifier, issuer: d.Issuer, store: d.Store, sources: d.Sources,
+		cfg: d.Config, verifier: d.Verifier, issuer: d.Issuer, store: d.Store, quota: d.Quota, sources: d.Sources,
 		log: d.Log, now: d.Now, static: grants.NewStaticAuth(d.Config.Grants.StaticUserCacheTTL.D()),
 	}
 	s.policy.Store(d.Policy)
@@ -111,6 +114,9 @@ func (s *Server) Reloaded(ok bool) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(s.cfg.Server.TokenPath, s.serveToken)
+	if s.quota != nil {
+		s.mountQuota(mux)
+	}
 	if s.cfg.Admin.Listen == "" {
 		s.mountAdmin(mux)
 	}
@@ -177,6 +183,8 @@ type tokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int64  `json:"expires_in"`
 	IssuedAt    string `json:"issued_at"`
+	// Warnings say why requested access was cut, such as a full quota.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // decision is what gets logged for one request: never credentials.
@@ -273,6 +281,7 @@ func (s *Server) serveToken(w http.ResponseWriter, r *http.Request) {
 	}
 	policy := s.policy.Load()
 	d.granted = policy.Authorize(subject, d.requested)
+	warnings := s.limitQuota(&d, subject.Pubkey)
 
 	now := s.now()
 	exp := now.Add(s.cfg.Token.Lifetime.D())
@@ -298,6 +307,7 @@ func (s *Server) serveToken(w http.ResponseWriter, r *http.Request) {
 		Token: tok.Raw, AccessToken: tok.Raw,
 		ExpiresIn: int64(tok.ExpiresAt.Sub(tok.IssuedAt).Seconds()),
 		IssuedAt:  tok.IssuedAt.UTC().Format(time.RFC3339),
+		Warnings:  warnings,
 	})
 }
 

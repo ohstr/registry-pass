@@ -17,6 +17,7 @@ type Config struct {
 	Membership Membership `yaml:"membership"`
 	Grants     Grants     `yaml:"grants"`
 	RateLimit  RateLimit  `yaml:"rateLimit"`
+	Quota      Quota      `yaml:"quota"`
 	Logging    Logging    `yaml:"logging"`
 }
 
@@ -161,6 +162,28 @@ type RateLimit struct {
 	Burst         int  `yaml:"burst"`
 }
 
+// Quota caps the storage each top-level namespace may use.
+type Quota struct {
+	Enabled bool            `yaml:"enabled"`
+	Default Size            `yaml:"default"`
+	PerName map[string]Size `yaml:"perName"`
+	// Exempt lists namespace names and public keys never capped.
+	Exempt []string `yaml:"exempt"`
+	// Registry is the registry API registry-pass walks to count usage.
+	Registry       string `yaml:"registry"`
+	RegistryCAFile string `yaml:"registryCAFile"`
+	// Service is the audience of registry-pass's own registry tokens;
+	// empty means the first of services.
+	Service string `yaml:"service"`
+	Store   string `yaml:"store"`
+	// EventsTokenFile holds the bearer token the registry sends with its
+	// notifications.
+	EventsTokenFile string   `yaml:"eventsTokenFile"`
+	DPrefix         string   `yaml:"dPrefix"`
+	RebuildInterval Duration `yaml:"rebuildInterval"`
+	Timeout         Duration `yaml:"timeout"`
+}
+
 type Logging struct {
 	Level      string `yaml:"level"`
 	Format     string `yaml:"format"`
@@ -235,8 +258,24 @@ func Default() Config {
 			FailuresPerIP: Rate{N: 30, Per: time.Minute},
 			Burst:         20,
 		},
+		Quota: Quota{
+			Default:         Size(10 << 30),
+			PerName:         map[string]Size{},
+			Store:           "/var/lib/registry-pass/quota.db",
+			DPrefix:         "quota:",
+			RebuildInterval: Duration(24 * time.Hour),
+			Timeout:         Duration(30 * time.Second),
+		},
 		Logging: Logging{Level: "info", Format: "json", LogGranted: true},
 	}
+}
+
+// QuotaService is the audience of registry-pass's own registry tokens.
+func (c *Config) QuotaService() string {
+	if c.Quota.Service != "" || len(c.Services) == 0 {
+		return c.Quota.Service
+	}
+	return c.Services[0]
 }
 
 // Relay source defaults, applied to each relay source after loading.

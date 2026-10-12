@@ -83,6 +83,11 @@ deny: [%q]
 
 func newHarness(t *testing.T, mod func(*config.Config), grantsExtra string) *harness {
 	t.Helper()
+	return newHarnessDeps(t, mod, grantsExtra, nil)
+}
+
+func newHarnessDeps(t *testing.T, mod func(*config.Config), grantsExtra string, deps func(*Deps)) *harness {
+	t.Helper()
 	cfg := config.Default()
 	cfg.Realm, cfg.Services = realm, []string{service}
 	cfg.Server.TrustedProxies = []string{"10.0.0.0/8"}
@@ -121,10 +126,14 @@ func newHarness(t *testing.T, mod func(*config.Config), grantsExtra string) *har
 	store.Ingest(authority.Member(m.Kind, m.DPrefix, "alice", alice.Pub, "alive", time.Now().Add(-time.Minute)))
 
 	logs := &bytes.Buffer{}
-	srv, err := New(Deps{
+	d := Deps{
 		Config: &cfg, Verifier: v, Issuer: iss, Policy: pol, Store: store, Sources: []Source{src},
 		Log: slog.New(slog.NewJSONHandler(&lockedWriter{w: logs}, nil)),
-	})
+	}
+	if deps != nil {
+		deps(&d)
+	}
+	srv, err := New(d)
 	if err != nil {
 		t.Fatal(err)
 	}

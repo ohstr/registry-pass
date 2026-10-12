@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,7 +57,10 @@ type pass struct {
 	keyPEM  string // path
 	members string
 	grants  string
+	config  string
+	env     []string
 	app     *app.App
+	stop    func()
 }
 
 type passOpts struct {
@@ -69,7 +73,14 @@ type passOpts struct {
 	// listen on every interface, for clients outside this network
 	// namespace (the docker daemon).
 	realmHost string
+	// quota turns the quota module on against the registry at
+	// registry (host:port); it is extra YAML inside the quota section.
+	quota    string
+	registry string
 }
+
+// eventsToken is the bearer the registry's notifications carry.
+const eventsToken = "events-secret"
 
 const defaultGrants = `
 templates: [{repos: "{name}/**", actions: [pull, push]}]
@@ -162,6 +173,12 @@ func startPass(t *testing.T, o passOpts) *pass {
 	if o.relayURL != "" {
 		source = fmt.Sprintf("{relay: {urls: [%s], reader: {keyFile: %s}, resync: 1m}}", o.relayURL, p.readerKey())
 	}
+	if o.registry != "" {
+		tok := filepath.Join(dir, "events.token")
+		os.WriteFile(tok, []byte(eventsToken), 0o600)
+		o.extra += fmt.Sprintf("\nquota: {enabled: true, timeout: 1s, registry: http://%s, eventsTokenFile: %s, store: %s, %s}\n",
+			o.registry, tok, filepath.Join(dir, "data", "quota.db"), o.quota)
+	}
 	cfgPath := filepath.Join(dir, "config.yaml")
 	os.WriteFile(cfgPath, []byte(fmt.Sprintf(`
 realm: %s
@@ -175,7 +192,16 @@ grants: {file: %s, reload: none}
 logging: {level: warn}
 %s`, p.realm, service, p.addr, p.keyPEM, p.certPEM, authority.Npub, source, p.grants, o.extra)), 0o600)
 
-	cfg, _, err := config.Load(cfgPath, o.env)
+	p.config, p.env = cfgPath, o.env
+	p.start()
+	t.Cleanup(func() { p.stop() })
+	return p
+}
+
+// start builds and runs registry-pass from its config file.
+func (p *pass) start() {
+	t := p.t
+	cfg, _, err := config.Load(p.config, p.env)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,6 +209,7 @@ logging: {level: warn}
 	if err != nil {
 		t.Fatal(err)
 	}
+	a.ConfigPath, a.Environ = p.config, p.env
 	l, err := a.Server.Listen()
 	if err != nil {
 		t.Fatal(err)
@@ -190,10 +217,16 @@ logging: {level: warn}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- a.Run(ctx, l) }()
-	t.Cleanup(func() { cancel(); <-done })
+	var once sync.Once
+	p.stop = func() { once.Do(func() { cancel(); <-done }) }
 	p.app = a
 	waitFor(t, 10*time.Second, func() bool { return a.Store.Fresh() })
-	return p
+}
+
+// restart stops registry-pass and starts it again from the same files.
+func (p *pass) restart() {
+	p.stop()
+	p.start()
 }
 
 func (p *pass) readerKey() string {
@@ -240,6 +273,13 @@ func (p *pass) tokenFor(t *testing.T, auth *authn.Basic, scopes ...string) strin
 // only registry-pass's certificate.
 func startRegistryV3(t *testing.T, p *pass) string {
 	t.Helper()
+	return serveRegistryV3(t, p, nil)
+}
+
+// serveRegistryV3 runs Distribution v3; with l, on that listener and
+// sending its notifications to registry-pass's /events.
+func serveRegistryV3(t *testing.T, p *pass, l net.Listener) string {
+	t.Helper()
 	cfg := &configuration.Configuration{
 		Storage: configuration.Storage{
 			"inmemory":    configuration.Parameters{},
@@ -253,7 +293,19 @@ func startRegistryV3(t *testing.T, p *pass) string {
 	}
 	cfg.Log.Level = "error"
 	cfg.Log.AccessLog.Disabled = true
-	reg := httptest.NewServer(handlers.NewApp(context.Background(), cfg))
+	if l != nil {
+		cfg.Notifications.Endpoints = []configuration.Endpoint{{
+			Name: "registry-pass", URL: strings.TrimSuffix(p.realm, "/token") + "/events",
+			Headers: http.Header{"Authorization": {"Bearer " + eventsToken}},
+			Timeout: 5 * time.Second, Threshold: 3, Backoff: 100 * time.Millisecond,
+		}}
+	}
+	reg := httptest.NewUnstartedServer(handlers.NewApp(context.Background(), cfg))
+	if l != nil {
+		reg.Listener.Close()
+		reg.Listener = l
+	}
+	reg.Start()
 	t.Cleanup(reg.Close)
 	return strings.TrimPrefix(reg.URL, "http://")
 }

@@ -87,8 +87,22 @@ identities:
     - {repos: "alice/**", actions: [pull, push], reserve: false}
 ```
 
+**Cap each namespace's storage.** In `config.yaml`, and point the registry's
+notifications at registry-pass's `/events`:
+
+```yaml
+quota:
+  enabled: true
+  default: 10GiB
+  registry: http://registry:5000
+  eventsTokenFile: /run/secrets/events.token
+```
+
+A full namespace's passes keep pull and delete but no push, until images are
+deleted. `GET /usage/alice` shows the usage.
+
 More in [examples/](examples/): a verified catalog, team namespaces, runtime
-nodes, and agents with their own key.
+nodes, agents with their own key, and storage quotas.
 
 ## Configuration
 
