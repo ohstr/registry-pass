@@ -12,6 +12,8 @@
   authority can raise one namespace's quota without editing the config.
 - Adds `GET /usage/<name>` for a namespace's owner or a catalog key, and the
   `registry_pass_quota_used_bytes` and `registry_pass_quota_bytes` metrics.
+- Adds an optional volume for the quota store to the Helm chart
+  (`quotaStore.enabled`).
 
 ## [0.2.0]
 

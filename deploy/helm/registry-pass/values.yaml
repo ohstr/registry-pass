@@ -34,6 +34,15 @@ grants:
   templates:
     - {repos: "{name}/**", actions: [pull, push]}
 
+# A volume for the storage quota's store (config.quota.store, default
+# /var/lib/registry-pass/quota.db). Turn on with config.quota.enabled; the
+# store has a single writer, so the chart then runs one replica.
+quotaStore:
+  enabled: false
+  existingClaim: ""  # use this PVC instead of creating one
+  size: 1Gi
+  storageClass: ""
+
 # Extra REGISTRY_PASS_* overrides.
 env: {}
 

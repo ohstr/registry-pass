@@ -1,0 +1,17 @@
+{{- if and .Values.quotaStore.enabled (not .Values.quotaStore.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-registry-pass-quota
+  labels:
+    app.kubernetes.io/name: registry-pass
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.quotaStore.storageClass }}
+  storageClassName: {{ .Values.quotaStore.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.quotaStore.size }}
+{{- end }}
