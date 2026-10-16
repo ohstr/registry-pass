@@ -231,9 +231,10 @@ func (a *App) reload() {
 func (a *App) buildMembership(ctx context.Context) error {
 	m := a.Config.Membership
 	opts := membership.Options{
-		Authorities: m.Authorities, Kind: m.Kind, DPrefix: m.DPrefix, NameMismatch: m.NameMismatch,
-		Resolve: m.Resolve, FutureSkew: m.FutureSkew.D(), HonorDeletions: m.HonorDeletions,
-		DuplicatePubkey: m.DuplicatePubkey, StaleAfter: m.StaleAfter.D(), OnStale: m.OnStale,
+		Authorities: m.Authorities, Kind: m.Kind, DPrefix: m.DPrefix, PubkeyField: m.PubkeyField,
+		NameMismatch: m.NameMismatch, Resolve: m.Resolve, FutureSkew: m.FutureSkew.D(),
+		HonorDeletions: m.HonorDeletions, DuplicatePubkey: m.DuplicatePubkey,
+		StaleAfter: m.StaleAfter.D(), OnStale: m.OnStale,
 		Heartbeat: m.Heartbeat.Enabled, HeartbeatD: m.Heartbeat.D,
 	}
 	if a.Config.Quota.Enabled {

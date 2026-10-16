@@ -18,7 +18,8 @@ delivers the records can't forge or alter them.
 ```
 
 - The name is the `d` tag after `dPrefix`; `content.name` must match it.
-- `pubkey`: npub or hex; empty means no access yet.
+- `pubkey`: npub or hex; empty or missing means no access yet. Records that
+  name it differently (e.g. `npub`) need `membership.pubkeyField: npub`.
 - `status`: `alive` or `dead`.
 - The newest record per name wins (highest `created_at`, then lowest id), so
   always set `created_at` to now. An older record never replaces a newer one,

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0]
+
+### Added
+
+- Adds `membership.pubkeyField` (default `pubkey`), the content field a
+  membership record keeps the member's key in, so records that name it `npub`
+  grant access.
+
 ## [0.3.0]
 
 ### Added

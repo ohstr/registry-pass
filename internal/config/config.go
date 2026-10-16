@@ -80,6 +80,7 @@ type Membership struct {
 	Authorities     []string  `yaml:"authorities"`
 	Kind            int       `yaml:"kind"`
 	DPrefix         string    `yaml:"dPrefix"`
+	PubkeyField     string    `yaml:"pubkeyField"`
 	NameMismatch    string    `yaml:"nameMismatch"`
 	Resolve         string    `yaml:"resolve"`
 	FutureSkew      Duration  `yaml:"futureSkew"`
@@ -233,6 +234,7 @@ func Default() Config {
 			Enabled:         true,
 			Kind:            30078,
 			DPrefix:         "member:",
+			PubkeyField:     "pubkey",
 			NameMismatch:    "reject",
 			Resolve:         "latest",
 			FutureSkew:      Duration(30 * time.Second),

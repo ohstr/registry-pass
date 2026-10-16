@@ -54,6 +54,7 @@ membership:
   authorities: []             # npub or hex; required when enabled
   kind: 30078                 # addressable kind of membership records
   dPrefix: "member:"
+  pubkeyField: pubkey         # content field with the member's npub or hex (e.g. npub)
   nameMismatch: reject        # reject | useD (content.name differs from the d tag)
   resolve: latest             # latest | deadWins (records from several authorities)
   futureSkew: 30s
