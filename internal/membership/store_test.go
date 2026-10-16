@@ -167,6 +167,46 @@ func TestInvalidRecordsFailClosed(t *testing.T) {
 	}
 }
 
+func TestPubkeyField(t *testing.T) {
+	record := func(field, key string) string {
+		return `{"name":"alice","status":"alive","` + field + `":"` + key + `"}`
+	}
+	cases := map[string]struct {
+		field, content string
+		member         bool
+	}{
+		"default pubkey":       {"", record("pubkey", alice.Pub), true},
+		"pubkey":               {"pubkey", record("pubkey", alice.Npub), true},
+		"npub":                 {"npub", record("npub", alice.Npub), true},
+		"npub hex":             {"npub", record("npub", alice.Pub), true},
+		"npub ignores pubkey":  {"npub", record("pubkey", alice.Pub), false},
+		"default ignores npub": {"", record("npub", alice.Npub), false},
+		"missing field":        {"npub", `{"name":"alice","status":"alive"}`, false},
+		"nsec":                 {"npub", record("npub", alice.Nsec), false},
+		"not a string":         {"npub", `{"name":"alice","status":"alive","npub":42}`, false},
+	}
+	for label, tc := range cases {
+		s, _ := newStore(func(o *Options) { o.PubkeyField = tc.field })
+		s.Ingest(auth1.Sign(kind, t0, tc.content, []string{"d", prefix + "alice"}))
+		if got := name(s, alice) == "alice"; got != tc.member {
+			t.Errorf("%s: member = %v, want %v", label, got, tc.member)
+		}
+	}
+	// An nsec in the field fails closed: it supersedes an older alive record.
+	s, _ := newStore(func(o *Options) { o.PubkeyField = "npub" })
+	s.Ingest(auth1.Sign(kind, t0.Add(-time.Hour), record("npub", alice.Npub), []string{"d", prefix + "alice"}))
+	s.Ingest(auth1.Sign(kind, t0, record("npub", alice.Nsec), []string{"d", prefix + "alice"}))
+	if name(s, alice) != "" {
+		t.Fatal("an nsec record left the older alive one in force")
+	}
+	// A missing key is a valid record with no access: it counts, grants nothing.
+	s, _ = newStore(func(o *Options) { o.PubkeyField = "npub" })
+	s.Ingest(auth1.Sign(kind, t0, `{"name":"alice","status":"alive"}`, []string{"d", prefix + "alice"}))
+	if snap := s.Snapshot(); snap.Records != 1 || snap.Size != 0 {
+		t.Fatalf("missing field: records %d size %d", snap.Records, snap.Size)
+	}
+}
+
 func TestOtherEventsIgnored(t *testing.T) {
 	s, _ := newStore(nil)
 	s.Ingest(

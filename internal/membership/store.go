@@ -22,6 +22,7 @@ type Options struct {
 	Authorities     []string // lowercase hex
 	Kind            int
 	DPrefix         string
+	PubkeyField     string // content field holding the member's key; empty = pubkey
 	NameMismatch    string // reject | useD
 	Resolve         string // latest | deadWins
 	FutureSkew      time.Duration
@@ -296,11 +297,10 @@ func firstTag(ev *nip01.Event, name string) string {
 
 type content struct {
 	Name   *string `json:"name"`
-	Pubkey string  `json:"pubkey"`
 	Status string  `json:"status"`
 }
 
-// parseRecord reads ev's content. A record the authority signed but that
+// parseRecord reads ev's content, taking the key from opts.PubkeyField. A record the authority signed but that
 // can't be read is kept as invalid: it supersedes older versions and
 // grants nothing, so a broken update fails closed.
 func (s *Store) parseRecord(ev *nip01.Event, d string) *Record {
@@ -309,8 +309,17 @@ func (s *Store) parseRecord(ev *nip01.Event, d string) *Record {
 		Status: statusInvalid, CreatedAt: ev.CreatedAt, ID: ev.ID, event: ev,
 	}
 	var c content
-	if err := json.Unmarshal([]byte(ev.Content), &c); err != nil {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal([]byte(ev.Content), &c) != nil || json.Unmarshal([]byte(ev.Content), &fields) != nil {
 		return rec
+	}
+	field := s.opts.PubkeyField
+	if field == "" {
+		field = "pubkey"
+	}
+	var key string
+	if raw, ok := fields[field]; ok && json.Unmarshal(raw, &key) != nil {
+		return rec // present but not a string
 	}
 	if c.Status != StatusAlive && c.Status != StatusDead {
 		return rec
@@ -320,9 +329,9 @@ func (s *Store) parseRecord(ev *nip01.Event, d string) *Record {
 			return rec
 		}
 	}
-	if c.Pubkey != "" {
-		pub, err := nip19.ParsePublicKey(c.Pubkey)
-		if err != nil || strings.HasPrefix(strings.ToLower(c.Pubkey), "nsec") {
+	if key != "" {
+		pub, err := nip19.ParsePublicKey(key)
+		if err != nil || strings.HasPrefix(strings.ToLower(key), "nsec") {
 			return rec
 		}
 		rec.Pubkey = pub
