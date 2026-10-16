@@ -65,6 +65,9 @@ func TestMinimalConfigGetsDefaults(t *testing.T) {
 	if got := cfg.Membership.Authorities[0]; got != authority.Pub {
 		t.Fatalf("authority not normalized to hex: %s", got)
 	}
+	if cfg.Membership.PubkeyField != "pubkey" {
+		t.Fatalf("pubkeyField default: %q", cfg.Membership.PubkeyField)
+	}
 	if cfg.Membership.Sources[0].File.PollInterval.D() != DefaultPollInterval {
 		t.Fatal("source defaults not applied")
 	}
@@ -168,6 +171,7 @@ func TestCrossChecks(t *testing.T) {
 		"not addressable":        {"membership:\n  authorities: [" + authority.Npub + "]\n  kind: 1\n  sources:\n    - file: {path: /x}\n", "addressable"},
 		"x5c off kid none":       {"token:\n  signingKeyFile: k\n  certificateFile: c\n  x5c: false\n  kid: none\n", "kid must not be none"},
 		"unanchored names":       {"grants:\n  namePattern: \"[a-z]+\"\n", "anchored"},
+		"empty pubkeyField":      {"membership:\n  authorities: [" + authority.Npub + "]\n  pubkeyField: \"\"\n  sources:\n    - file: {path: /x}\n", "membership.pubkeyField"},
 		"bad enum":               {"membership:\n  authorities: [" + authority.Npub + "]\n  onStale: shrug\n  sources:\n    - file: {path: /x}\n", "onStale"},
 		"admin same port":        {"admin:\n  listen: \":5001\"\n", "admin.listen"},
 		"admin path clash":       {"admin:\n  healthPath: /token\n", "collides"},

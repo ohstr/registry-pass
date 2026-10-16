@@ -227,6 +227,9 @@ func (cfg *Config) validateMembership(c *checker) {
 	if m.DPrefix == "" {
 		c.addf("membership.dPrefix: must not be empty")
 	}
+	if m.PubkeyField == "" {
+		c.addf("membership.pubkeyField: must not be empty")
+	}
 	if m.StaleAfter <= 0 {
 		c.addf("membership.staleAfter: must be positive")
 	}
